@@ -1,22 +1,30 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Kristallball military asset management API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
+  - name: auth
+  - name: dashboard
+  - name: inventory
+  - name: bases
+  - name: equipment
+  - name: purchases
+  - name: transfers
+  - name: assignments
+  - name: expenditures
+  - name: audit
+  - name: users
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
-      summary: Health check
-      description: Returns server health status
+      summary: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +32,759 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Sign in to the operations system
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Authenticated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthSession"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Return the current authenticated user
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+  /dashboard:
+    get:
+      operationId: getDashboard
+      tags: [dashboard]
+      summary: Return calculated inventory metrics and chart series
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/BaseId"
+        - $ref: "#/components/parameters/EquipmentTypeId"
+        - $ref: "#/components/parameters/StartDate"
+        - $ref: "#/components/parameters/EndDate"
+      responses:
+        "200":
+          description: Dashboard metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Dashboard"
+  /inventory:
+    get:
+      operationId: getInventory
+      tags: [inventory]
+      summary: Return calculated stock by base and equipment
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/BaseId"
+        - $ref: "#/components/parameters/EquipmentTypeId"
+      responses:
+        "200":
+          description: Inventory rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InventoryRow"
+  /bases:
+    get:
+      operationId: listBases
+      tags: [bases]
+      summary: List accessible bases
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Bases
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Base"
+    post:
+      operationId: createBase
+      tags: [bases]
+      summary: Create a base
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BaseInput"
+      responses:
+        "201":
+          description: Created base
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Base"
+  /bases/{id}:
+    put:
+      operationId: updateBase
+      tags: [bases]
+      summary: Update a base
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/PathId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BaseInput"
+      responses:
+        "200":
+          description: Updated base
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Base"
+    delete:
+      operationId: deleteBase
+      tags: [bases]
+      summary: Delete a base
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/PathId"
+      responses:
+        "204":
+          description: Deleted
+  /equipment-types:
+    get:
+      operationId: listEquipmentTypes
+      tags: [equipment]
+      summary: List equipment types
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Equipment types
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EquipmentType"
+    post:
+      operationId: createEquipmentType
+      tags: [equipment]
+      summary: Create an equipment type
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EquipmentTypeInput"
+      responses:
+        "201":
+          description: Created equipment type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EquipmentType"
+  /equipment-types/{id}:
+    put:
+      operationId: updateEquipmentType
+      tags: [equipment]
+      summary: Update an equipment type
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/PathId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EquipmentTypeInput"
+      responses:
+        "200":
+          description: Updated equipment type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EquipmentType"
+    delete:
+      operationId: deleteEquipmentType
+      tags: [equipment]
+      summary: Delete an equipment type
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/PathId"
+      responses:
+        "204":
+          description: Deleted
+  /purchases:
+    get:
+      operationId: listPurchases
+      tags: [purchases]
+      summary: List purchases
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/BaseId"
+        - $ref: "#/components/parameters/EquipmentTypeId"
+      responses:
+        "200":
+          description: Purchases
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Purchase"
+    post:
+      operationId: createPurchase
+      tags: [purchases]
+      summary: Record an incoming purchase
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PurchaseInput"
+      responses:
+        "201":
+          description: Purchase created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Purchase"
+  /purchases/{id}:
+    get:
+      operationId: getPurchase
+      tags: [purchases]
+      summary: Get a purchase
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/PathId"
+      responses:
+        "200":
+          description: Purchase
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Purchase"
+  /transfers:
+    get:
+      operationId: listTransfers
+      tags: [transfers]
+      summary: List transfers
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/BaseId"
+        - $ref: "#/components/parameters/TransferStatus"
+      responses:
+        "200":
+          description: Transfers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Transfer"
+    post:
+      operationId: createTransfer
+      tags: [transfers]
+      summary: Atomically transfer inventory between bases
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferInput"
+      responses:
+        "201":
+          description: Transfer created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transfer"
+        "400":
+          description: Validation or insufficient inventory
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /transfers/{id}:
+    get:
+      operationId: getTransfer
+      tags: [transfers]
+      summary: Get a transfer
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/PathId"
+      responses:
+        "200":
+          description: Transfer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transfer"
+  /transfers/{id}/status:
+    put:
+      operationId: updateTransferStatus
+      tags: [transfers]
+      summary: Update transfer status
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/PathId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TransferStatusInput"
+      responses:
+        "200":
+          description: Updated transfer
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Transfer"
+  /assignments:
+    get:
+      operationId: listAssignments
+      tags: [assignments]
+      summary: List asset assignments
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/BaseId"
+      responses:
+        "200":
+          description: Assignments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Assignment"
+    post:
+      operationId: createAssignment
+      tags: [assignments]
+      summary: Assign inventory to personnel
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignmentInput"
+      responses:
+        "201":
+          description: Assignment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Assignment"
+  /expenditures:
+    get:
+      operationId: listExpenditures
+      tags: [expenditures]
+      summary: List expenditures
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/BaseId"
+      responses:
+        "200":
+          description: Expenditures
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Expenditure"
+    post:
+      operationId: createExpenditure
+      tags: [expenditures]
+      summary: Record expended inventory
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExpenditureInput"
+      responses:
+        "201":
+          description: Expenditure created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Expenditure"
+  /audit-logs:
+    get:
+      operationId: listAuditLogs
+      tags: [audit]
+      summary: List security and inventory audit events
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/BaseId"
+      responses:
+        "200":
+          description: Audit logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditLog"
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List system users
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create a system user
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInput"
+      responses:
+        "201":
+          description: Created user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+  /users/{id}:
+    put:
+      operationId: updateUser
+      tags: [users]
+      summary: Update a system user
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/PathId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    delete:
+      operationId: deleteUser
+      tags: [users]
+      summary: Delete a system user
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: "#/components/parameters/PathId"
+      responses:
+        "204":
+          description: Deleted
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    PathId:
+      name: id
+      in: path
+      required: true
+      schema: { type: number }
+    BaseId:
+      name: baseId
+      in: query
+      required: false
+      schema: { type: number }
+    EquipmentTypeId:
+      name: equipmentTypeId
+      in: query
+      required: false
+      schema: { type: number }
+    StartDate:
+      name: startDate
+      in: query
+      required: false
+      schema: { type: string, format: date }
+    EndDate:
+      name: endDate
+      in: query
+      required: false
+      schema: { type: string, format: date }
+    TransferStatus:
+      name: status
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [PENDING, IN_TRANSIT, COMPLETED, CANCELLED]
   schemas:
     HealthStatus:
       type: object
       properties:
-        status:
-          type: string
-      required:
-        - status
-
+        status: { type: string }
+      required: [status]
+    ErrorResponse:
+      type: object
+      properties:
+        message: { type: string }
+        available: { type: number }
+        requested: { type: number }
+      required: [message]
+    Role:
+      type: string
+      enum: [ADMIN, BASE_COMMANDER, LOGISTICS_OFFICER]
+    Category:
+      type: string
+      enum: [WEAPON, VEHICLE, AMMUNITION]
+    TransferStatus:
+      type: string
+      enum: [PENDING, IN_TRANSIT, COMPLETED, CANCELLED]
+    LoginInput:
+      type: object
+      properties:
+        username: { type: string, minLength: 1 }
+        password: { type: string, minLength: 1 }
+      required: [username, password]
+    AuthSession:
+      type: object
+      properties:
+        token: { type: string }
+        user: { $ref: "#/components/schemas/User" }
+      required: [token, user]
+    Base:
+      type: object
+      properties:
+        id: { type: number }
+        name: { type: string }
+        location: { type: string }
+        assetCount: { type: number }
+        readiness: { type: number }
+      required: [id, name, location]
+    BaseInput:
+      type: object
+      properties:
+        name: { type: string, minLength: 1 }
+        location: { type: string, minLength: 1 }
+      required: [name, location]
+    EquipmentType:
+      type: object
+      properties:
+        id: { type: number }
+        name: { type: string }
+        category: { $ref: "#/components/schemas/Category" }
+        unit: { type: string }
+      required: [id, name, category]
+    EquipmentTypeInput:
+      type: object
+      properties:
+        name: { type: string, minLength: 1 }
+        category: { $ref: "#/components/schemas/Category" }
+        unit: { type: string }
+      required: [name, category]
+    User:
+      type: object
+      properties:
+        id: { type: number }
+        username: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        baseId: { type: ["number", "null"] }
+        baseName: { type: ["string", "null"] }
+        lastActiveAt: { type: ["string", "null"], format: date-time }
+      required: [id, username, role, baseId, baseName]
+    UserInput:
+      type: object
+      properties:
+        username: { type: string, minLength: 3 }
+        password: { type: string, minLength: 8 }
+        role: { $ref: "#/components/schemas/Role" }
+        baseId: { type: ["number", "null"] }
+      required: [username, password, role]
+    UserUpdate:
+      type: object
+      properties:
+        username: { type: string, minLength: 3 }
+        password: { type: string, minLength: 8 }
+        role: { $ref: "#/components/schemas/Role" }
+        baseId: { type: ["number", "null"] }
+    Dashboard:
+      type: object
+      properties:
+        openingBalance: { type: number }
+        purchases: { type: number }
+        transfersIn: { type: number }
+        transfersOut: { type: number }
+        netMovement: { type: number }
+        assigned: { type: number }
+        expended: { type: number }
+        closingBalance: { type: number }
+        inventoryByCategory:
+          type: array
+          items: { $ref: "#/components/schemas/ChartDatum" }
+        movementSeries:
+          type: array
+          items: { $ref: "#/components/schemas/ChartDatum" }
+        recentActivity:
+          type: array
+          items: { $ref: "#/components/schemas/AuditLog" }
+      required: [openingBalance, purchases, transfersIn, transfersOut, netMovement, assigned, expended, closingBalance, inventoryByCategory, movementSeries, recentActivity]
+    ChartDatum:
+      type: object
+      properties:
+        label: { type: string }
+        value: { type: number }
+        secondaryValue: { type: number }
+      required: [label, value]
+    InventoryRow:
+      type: object
+      properties:
+        baseId: { type: number }
+        baseName: { type: string }
+        equipmentTypeId: { type: number }
+        equipmentName: { type: string }
+        category: { $ref: "#/components/schemas/Category" }
+        available: { type: number }
+        assigned: { type: number }
+        expended: { type: number }
+      required: [baseId, baseName, equipmentTypeId, equipmentName, category, available, assigned, expended]
+    Purchase:
+      type: object
+      properties:
+        id: { type: number }
+        baseId: { type: number }
+        baseName: { type: string }
+        equipmentTypeId: { type: number }
+        equipmentName: { type: string }
+        category: { $ref: "#/components/schemas/Category" }
+        quantity: { type: number }
+        purchaseDate: { type: string, format: date }
+        createdBy: { type: string }
+        createdAt: { type: string, format: date-time }
+      required: [id, baseId, baseName, equipmentTypeId, equipmentName, category, quantity, purchaseDate, createdBy, createdAt]
+    PurchaseInput:
+      type: object
+      properties:
+        baseId: { type: number }
+        equipmentTypeId: { type: number }
+        quantity: { type: number, minimum: 1 }
+        purchaseDate: { type: string, format: date }
+      required: [baseId, equipmentTypeId, quantity, purchaseDate]
+    Transfer:
+      type: object
+      properties:
+        id: { type: number }
+        sourceBaseId: { type: number }
+        sourceBaseName: { type: string }
+        destinationBaseId: { type: number }
+        destinationBaseName: { type: string }
+        equipmentTypeId: { type: number }
+        equipmentName: { type: string }
+        category: { $ref: "#/components/schemas/Category" }
+        quantity: { type: number }
+        status: { $ref: "#/components/schemas/TransferStatus" }
+        initiatedBy: { type: string }
+        timestamp: { type: string, format: date-time }
+      required: [id, sourceBaseId, sourceBaseName, destinationBaseId, destinationBaseName, equipmentTypeId, equipmentName, category, quantity, status, initiatedBy, timestamp]
+    TransferInput:
+      type: object
+      properties:
+        sourceBaseId: { type: number }
+        destinationBaseId: { type: number }
+        equipmentTypeId: { type: number }
+        quantity: { type: number, minimum: 1 }
+      required: [sourceBaseId, destinationBaseId, equipmentTypeId, quantity]
+    TransferStatusInput:
+      type: object
+      properties:
+        status: { $ref: "#/components/schemas/TransferStatus" }
+      required: [status]
+    Assignment:
+      type: object
+      properties:
+        id: { type: number }
+        baseId: { type: number }
+        baseName: { type: string }
+        equipmentTypeId: { type: number }
+        equipmentName: { type: string }
+        category: { $ref: "#/components/schemas/Category" }
+        personnelName: { type: string }
+        quantity: { type: number }
+        assignedBy: { type: string }
+        assignedAt: { type: string, format: date-time }
+      required: [id, baseId, baseName, equipmentTypeId, equipmentName, category, personnelName, quantity, assignedBy, assignedAt]
+    AssignmentInput:
+      type: object
+      properties:
+        baseId: { type: number }
+        equipmentTypeId: { type: number }
+        personnelName: { type: string, minLength: 1 }
+        quantity: { type: number, minimum: 1 }
+      required: [baseId, equipmentTypeId, personnelName, quantity]
+    Expenditure:
+      type: object
+      properties:
+        id: { type: number }
+        baseId: { type: number }
+        baseName: { type: string }
+        equipmentTypeId: { type: number }
+        equipmentName: { type: string }
+        category: { $ref: "#/components/schemas/Category" }
+        quantity: { type: number }
+        reason: { type: string }
+        recordedBy: { type: string }
+        expendedAt: { type: string, format: date-time }
+      required: [id, baseId, baseName, equipmentTypeId, equipmentName, category, quantity, reason, recordedBy, expendedAt]
+    ExpenditureInput:
+      type: object
+      properties:
+        baseId: { type: number }
+        equipmentTypeId: { type: number }
+        quantity: { type: number, minimum: 1 }
+        reason: { type: string, minLength: 1 }
+      required: [baseId, equipmentTypeId, quantity, reason]
+    AuditLog:
+      type: object
+      properties:
+        id: { type: number }
+        userId: { type: number }
+        username: { type: string }
+        action: { type: string }
+        entityType: { type: string }
+        entityId: { type: ["number", "null"] }
+        details: { type: string }
+        createdAt: { type: string, format: date-time }
+      required: [id, userId, username, action, entityType, entityId, details, createdAt]

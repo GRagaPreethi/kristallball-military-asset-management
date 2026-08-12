@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Kristallball Asset Operations"
+description = "A production-ready military asset management system for tracking vehicles, weapons, and ammunition across multiple bases with role-based access, transactional movements, inventory calculations, and audit logging."
+version = "1.0.0"
+id = "artifacts/kristallball"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19373
+
+[services.development]
+run = "pnpm --filter @workspace/kristallball run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/kristallball", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/kristallball/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19373"
+BASE_PATH = "/"

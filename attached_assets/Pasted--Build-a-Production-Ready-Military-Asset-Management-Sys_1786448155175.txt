@@ -1,0 +1,1052 @@
+# Build a Production-Ready Military Asset Management System — Kristallball
+
+You are an expert full-stack engineer. Build the complete **Military Asset Management System** described below.
+
+Do NOT create a mockup, static UI, prototype, or incomplete demo. Build a fully functional full-stack application with a working backend, PostgreSQL database, authentication, RBAC, transactional inventory operations, audit logging, and React frontend.
+
+## 1. Technology Stack
+
+### Frontend
+
+* React
+* Vite
+* JavaScript/JSX
+* Tailwind CSS
+* React Router
+* Axios
+* Lucide React
+* Recharts
+
+### Backend
+
+* Node.js 18+
+* Express.js
+* JavaScript ES6 modules
+* JWT authentication
+* bcrypt/bcryptjs password hashing
+* Helmet
+* CORS
+
+### Database
+
+* PostgreSQL
+* Use Prisma ORM if it simplifies development; otherwise use `pg`.
+* Use proper foreign keys, indexes, constraints, and database transactions.
+
+Do NOT use MongoDB.
+
+---
+
+# 2. Project Structure
+
+Create this structure:
+
+military-asset-management/
+
+├── backend/
+│   ├── config/
+│   ├── controllers/
+│   ├── middlewares/
+│   ├── routes/
+│   ├── services/
+│   ├── models/
+│   ├── utils/
+│   ├── prisma/
+│   ├── .env.example
+│   ├── package.json
+│   └── server.js
+│
+├── frontend/
+│   ├── public/
+│   ├── src/
+│   │   ├── assets/
+│   │   ├── components/
+│   │   ├── pages/
+│   │   ├── services/
+│   │   ├── context/
+│   │   ├── hooks/
+│   │   ├── utils/
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   ├── .env.example
+│   ├── package.json
+│   └── vite.config.js
+│
+├── database/
+│   └── schema.sql
+│
+└── README.md
+
+Keep frontend and backend clearly separated.
+
+---
+
+# 3. User Roles
+
+Implement exactly these roles:
+
+### ADMIN
+
+* Global access to all bases
+* View all assets
+* View all transactions
+* Create purchases
+* Create transfers
+* Manage assignments
+* Record expenditures
+* View audit logs
+* Manage users
+* Manage bases
+* Manage equipment types
+
+### BASE_COMMANDER
+
+* Can only access their assigned base
+* Cannot view another base
+* Can view inventory for their base
+* Can view purchases/transfers affecting their base
+* Can manage assignments for their base
+* Can record expenditures for their base
+* Cannot access global administration
+* Cannot modify their `baseId` through frontend requests
+
+### LOGISTICS_OFFICER
+
+* Can manage purchases
+* Can create/manage transfers
+* Can view relevant inventory and movement information
+* Must respect base authorization rules
+* Cannot access user administration
+
+All authorization must be enforced on the backend.
+
+Hiding frontend buttons is NOT sufficient security.
+
+---
+
+# 4. Authentication
+
+Implement:
+
+POST `/api/auth/login`
+
+Request:
+
+{
+"username": "admin_user",
+"password": "AdminPass123!"
+}
+
+Response should contain:
+
+* JWT token
+* user information
+* role
+* baseId
+
+JWT payload should contain:
+
+* userId
+* role
+* baseId
+
+Create:
+
+`authenticateToken`
+
+middleware that:
+
+1. Reads Authorization Bearer token.
+2. Verifies JWT.
+3. Rejects invalid/expired tokens.
+4. Attaches authenticated user to `req.user`.
+
+Create:
+
+`authorizeRoles(...roles)`
+
+middleware.
+
+Create a base-scope middleware so Base Commanders cannot manipulate `baseId` manually.
+
+Never trust `baseId` supplied by a Base Commander in the request body/query.
+
+---
+
+# 5. Database Schema
+
+Create these tables:
+
+### users
+
+* id
+* username
+* password_hash
+* role
+* base_id
+* created_at
+* updated_at
+
+### bases
+
+* id
+* name
+* location
+* created_at
+
+### equipment_types
+
+* id
+* name
+* category
+* created_at
+
+Categories:
+
+* WEAPON
+* VEHICLE
+* AMMUNITION
+
+### purchases
+
+* id
+* base_id
+* equipment_type_id
+* quantity
+* purchase_date
+* created_by
+* created_at
+
+### transfers
+
+* id
+* source_base_id
+* destination_base_id
+* equipment_type_id
+* quantity
+* status
+* initiated_by
+* timestamp
+
+Statuses:
+
+* PENDING
+* IN_TRANSIT
+* COMPLETED
+* CANCELLED
+
+### assignments
+
+* id
+* base_id
+* equipment_type_id
+* personnel_name
+* quantity
+* assigned_by
+* assigned_at
+
+### expenditures
+
+* id
+* base_id
+* equipment_type_id
+* quantity
+* reason
+* recorded_by
+* expended_at
+
+### audit_logs
+
+* id
+* user_id
+* action
+* entity_type
+* entity_id
+* details
+* created_at
+
+Add appropriate:
+
+* primary keys
+* foreign keys
+* NOT NULL constraints
+* CHECK constraints
+* indexes
+
+Important indexes:
+
+* base_id
+* equipment_type_id
+* created_at/timestamp
+* user_id
+
+---
+
+# 6. Inventory Calculation
+
+Do NOT maintain unreliable manually editable balance fields.
+
+Calculate inventory from transaction history.
+
+For a selected:
+
+* Base
+* Equipment Type
+* Date range
+
+calculate:
+
+Opening Balance
+
+*
+
+Net Movement
+
+*
+
+Assigned
+
+*
+
+Expended
+
+=
+
+Closing Balance
+
+Where:
+
+Net Movement = Purchases + Transfers In - Transfers Out
+
+For example:
+
+Opening Balance = all valid stock-affecting transactions before the selected start date.
+
+Current-period movement:
+
+Purchases
++
+Transfers In
+------------
+
+Transfers Out
+
+Assigned = current-period assignments
+
+Expended = current-period expenditures
+
+Closing Balance must represent the actual available stock.
+
+---
+
+# 7. Critical Inventory Validation
+
+Before allowing:
+
+* transfer
+* assignment
+* expenditure
+
+calculate the currently available stock.
+
+Never allow:
+
+available stock < requested quantity
+
+Return a clear HTTP 400 response such as:
+
+{
+"message": "Insufficient inventory",
+"available": 20,
+"requested": 30
+}
+
+Never allow negative inventory.
+
+---
+
+# 8. Atomic Transfers
+
+Transfer operations MUST use PostgreSQL transactions.
+
+When creating a transfer:
+
+1. BEGIN transaction
+2. Authenticate requesting user
+3. Validate role
+4. Validate source/destination bases
+5. Validate quantity > 0
+6. Validate source and destination are different
+7. Calculate available stock at source
+8. Reject if insufficient stock
+9. Insert transfer
+10. Record audit log
+11. COMMIT
+
+If anything fails:
+
+ROLLBACK
+
+No partial transaction should remain.
+
+The API should never report a transfer as successful if the database transaction failed.
+
+---
+
+# 9. Audit Logging
+
+Every stock-changing operation must generate an audit log.
+
+Actions:
+
+* PURCHASE
+* TRANSFER
+* ASSIGNMENT
+* EXPENDITURE
+* LOGIN
+* USER_CREATED
+* USER_UPDATED
+
+Audit records should include:
+
+* user
+* action
+* entity
+* entity ID
+* timestamp
+* useful details
+* quantity where applicable
+* source/destination base where applicable
+
+Audit logs must be accessible according to RBAC.
+
+Admins can view all logs.
+
+Base Commanders can only see relevant logs for their base.
+
+---
+
+# 10. API Endpoints
+
+Implement clean REST APIs.
+
+## Authentication
+
+POST `/api/auth/login`
+
+GET `/api/auth/me`
+
+## Bases
+
+GET `/api/bases`
+
+POST `/api/bases`
+
+PUT `/api/bases/:id`
+
+DELETE `/api/bases/:id`
+
+## Equipment
+
+GET `/api/equipment-types`
+
+POST `/api/equipment-types`
+
+PUT `/api/equipment-types/:id`
+
+DELETE `/api/equipment-types/:id`
+
+## Dashboard
+
+GET `/api/assets/dashboard`
+
+Support filters:
+
+* baseId
+* equipmentTypeId
+* startDate
+* endDate
+
+Return:
+
+{
+"openingBalance": 0,
+"purchases": 0,
+"transfersIn": 0,
+"transfersOut": 0,
+"netMovement": 0,
+"assigned": 0,
+"expended": 0,
+"closingBalance": 0
+}
+
+## Purchases
+
+GET `/api/purchases`
+
+POST `/api/purchases`
+
+GET `/api/purchases/:id`
+
+## Transfers
+
+GET `/api/transfers`
+
+POST `/api/transfers`
+
+GET `/api/transfers/:id`
+
+PUT `/api/transfers/:id/status`
+
+## Assignments
+
+GET `/api/assignments`
+
+POST `/api/assignments`
+
+## Expenditures
+
+GET `/api/expenditures`
+
+POST `/api/expenditures`
+
+## Audit Logs
+
+GET `/api/audit-logs`
+
+## Users
+
+GET `/api/users`
+
+POST `/api/users`
+
+PUT `/api/users/:id`
+
+DELETE `/api/users/:id`
+
+User management must be Admin-only.
+
+---
+
+# 11. Frontend
+
+Build a professional enterprise-style dashboard.
+
+Use:
+
+* Tailwind CSS
+* Lucide icons
+* responsive layouts
+* clean cards
+* tables
+* forms
+* modals
+* loading states
+* empty states
+* error states
+* toast notifications
+
+Do NOT make it look like a generic student CRUD project.
+
+The UI should feel like a serious operational management system.
+
+---
+
+# 12. Login Page
+
+Create a professional login screen.
+
+Fields:
+
+* Username
+* Password
+
+After login:
+
+* Store JWT securely for the application.
+* Load user information.
+* Redirect to dashboard.
+
+Display the logged-in user's:
+
+* username
+* role
+* assigned base
+
+Provide logout functionality.
+
+---
+
+# 13. Dashboard
+
+Create:
+
+### Statistics Cards
+
+1. Opening Balance
+2. Net Movement
+3. Assigned
+4. Expended
+5. Closing Balance
+
+Net Movement card must be clickable.
+
+When clicked, open a modal:
+
+### Net Movement Breakdown
+
+Purchases (+)
+Transfers In (+)
+Transfers Out (-)
+
+Total Net Movement
+
+---
+
+# 14. Dashboard Filters
+
+Provide:
+
+* Date range
+* Base
+* Equipment Type
+
+Admin should be able to select any base.
+
+Base Commander should automatically be restricted to their base.
+
+The frontend must NOT rely on simply hiding the base selector.
+
+Backend authorization remains the source of truth.
+
+---
+
+# 15. Charts
+
+Use Recharts.
+
+Include useful visualizations such as:
+
+* Inventory by equipment type
+* Purchases vs Transfers
+* Expenditures over time
+* Base-wise inventory for Admin
+
+Charts must use real API data.
+
+Do NOT hard-code chart values.
+
+---
+
+# 16. Purchases Page
+
+Create:
+
+### Add Purchase
+
+Fields:
+
+* Base
+* Equipment Type
+* Quantity
+* Purchase Date
+
+After submission:
+
+* save to PostgreSQL
+* generate audit log
+* refresh inventory
+
+Include historical purchases table.
+
+---
+
+# 17. Transfers Page
+
+Create:
+
+### Create Transfer
+
+Fields:
+
+* Source Base
+* Destination Base
+* Equipment Type
+* Quantity
+
+Show source available inventory before submission if possible.
+
+Validate:
+
+* quantity > 0
+* source != destination
+* sufficient inventory
+
+After successful transfer:
+
+* update movement data
+* create audit log
+* refresh dashboard
+
+Include transfer history.
+
+---
+
+# 18. Assignments & Expenditures Page
+
+Create two sections.
+
+### Assign Asset
+
+Fields:
+
+* Base
+* Equipment Type
+* Personnel Name
+* Quantity
+
+Validate available inventory.
+
+### Record Expenditure
+
+Fields:
+
+* Base
+* Equipment Type
+* Quantity
+* Reason
+
+Validate available inventory.
+
+Display history tables for both.
+
+---
+
+# 19. RBAC-Based Navigation
+
+Sidebar should dynamically display allowed sections.
+
+### Admin
+
+* Dashboard
+* Inventory
+* Purchases
+* Transfers
+* Assignments
+* Expenditures
+* Audit Logs
+* Users
+* Bases
+* Equipment Types
+
+### Base Commander
+
+* Dashboard
+* Inventory
+* Purchases/History
+* Transfers/History
+* Assignments
+* Expenditures
+
+### Logistics Officer
+
+* Dashboard
+* Inventory
+* Purchases
+* Transfers
+
+Again: frontend navigation is only UX. Backend must enforce permissions.
+
+---
+
+# 20. Error Handling
+
+Implement centralized backend error handling.
+
+Return consistent responses.
+
+Handle:
+
+* invalid login
+* expired JWT
+* unauthorized access
+* invalid input
+* insufficient inventory
+* nonexistent records
+* database errors
+* transaction failures
+
+Frontend should display user-friendly errors.
+
+Never expose sensitive database errors or secrets to users.
+
+---
+
+# 21. Validation
+
+Validate all incoming API data.
+
+Examples:
+
+* quantity must be a positive integer
+* username required
+* password required
+* valid role
+* valid base
+* valid equipment type
+* valid dates
+
+Never trust frontend validation alone.
+
+---
+
+# 22. Seed Data
+
+Create a database seed script.
+
+Create sample bases:
+
+* Fort Alpha
+* Fort Bravo
+* Fort Charlie
+
+Create equipment:
+
+* Humvee
+* Transport Vehicle
+* M4 Carbine
+* 5.56mm Ammunition
+* 9mm Ammunition
+
+Create sample users:
+
+Admin:
+
+username:
+`admin_user`
+
+password:
+`AdminPass123!`
+
+role:
+`ADMIN`
+
+Base Commander:
+
+username:
+`commander_alpha`
+
+password:
+`CommandPass123!`
+
+role:
+`BASE_COMMANDER`
+
+base:
+`Fort Alpha`
+
+Logistics Officer:
+
+username:
+`logistics_officer`
+
+password:
+`LogisticsPass123!`
+
+role:
+`LOGISTICS_OFFICER`
+
+Hash all passwords using bcrypt.
+
+Never store plaintext passwords.
+
+Add realistic sample purchases/transfers/assignments/expenditures so the dashboard is meaningful immediately after seeding.
+
+---
+
+# 23. Environment Variables
+
+Backend `.env.example`:
+
+DATABASE_URL=
+JWT_SECRET=
+PORT=5000
+NODE_ENV=development
+FRONTEND_URL=
+
+Frontend `.env.example`:
+
+VITE_API_BASE_URL=http://localhost:5000/api
+
+Never hard-code secrets.
+
+Never commit `.env`.
+
+---
+
+# 24. README
+
+Create a complete README containing:
+
+1. Project overview
+2. Features
+3. Architecture
+4. Tech stack
+5. Folder structure
+6. Database schema
+7. Environment setup
+8. PostgreSQL setup
+9. Installation commands
+10. Database migration commands
+11. Seed commands
+12. Backend startup
+13. Frontend startup
+14. API documentation
+15. RBAC matrix
+16. Test credentials
+17. Deployment instructions
+18. Troubleshooting
+
+Include exact commands.
+
+---
+
+# 25. Database SQL
+
+Create:
+
+`database/schema.sql`
+
+It must contain the complete PostgreSQL schema.
+
+If Prisma is used, also maintain the Prisma schema and make sure the SQL schema remains understandable and reproducible.
+
+---
+
+# 26. Security Requirements
+
+Implement:
+
+* bcrypt password hashing
+* JWT authentication
+* Helmet
+* CORS configuration
+* backend RBAC
+* input validation
+* SQL injection prevention
+* parameterized queries/ORM
+* environment secrets
+* transaction safety
+
+Do not expose passwords or JWT secrets in API responses.
+
+---
+
+# 27. Important Engineering Rules
+
+DO NOT:
+
+* create fake API responses
+* hard-code inventory metrics
+* store fake dashboard values
+* bypass authentication
+* rely only on frontend authorization
+* allow negative inventory
+* ignore transaction failures
+* use MongoDB
+* commit secrets
+* create unnecessary duplicate data
+* leave major features as TODOs
+
+DO:
+
+* build real APIs
+* connect the frontend to the backend
+* persist all data in PostgreSQL
+* use real calculations
+* enforce RBAC server-side
+* use transactions for critical operations
+* create audit records
+* provide loading/error states
+* make the application responsive
+* keep code modular and maintainable
+
+---
+
+# 28. Final Verification
+
+Before considering the project complete, test the following scenarios:
+
+### Authentication
+
+* Admin login works
+* Commander login works
+* Logistics login works
+* Invalid credentials fail
+
+### RBAC
+
+* Admin can access everything
+* Commander cannot access another base
+* Logistics Officer cannot access Admin functionality
+
+### Inventory
+
+* Purchase increases stock
+* Transfer decreases source stock
+* Transfer increases destination stock
+* Assignment decreases available stock
+* Expenditure decreases available stock
+* Closing balance is calculated correctly
+
+### Transfer Integrity
+
+* Insufficient stock transfer fails
+* Invalid quantity fails
+* Same source/destination fails
+* Failed transaction rolls back
+* Successful transfer creates audit log
+
+### Audit
+
+* Purchase generates audit log
+* Transfer generates audit log
+* Assignment generates audit log
+* Expenditure generates audit log
+
+### UI
+
+* Dashboard loads real data
+* Filters work
+* Net Movement modal works
+* Tables refresh after mutations
+* Logout works
+* Unauthorized routes are blocked
+
+---
+
+# 29. Start Building
+
+First inspect the current Replit workspace.
+
+If an existing project is present, preserve useful existing work but refactor it to meet the requirements above.
+
+Then implement the project systematically.
+
+Do not stop after creating the UI.
+
+Build the database, backend APIs, authentication, RBAC, transactional business logic, audit logging, frontend integration, seed data, and documentation.
+
+After implementation, run the application and fix build/runtime/database errors.
+
+The final result must be a **fully functional Military Asset Management System**, not a prototype.
+
+At the end, provide:
+
+1. What was implemented
+2. How to run the backend
+3. How to run the frontend
+4. Database setup/seed commands
+5. Test credentials
+6. Important API endpoints
+7. Any remaining issues, if any

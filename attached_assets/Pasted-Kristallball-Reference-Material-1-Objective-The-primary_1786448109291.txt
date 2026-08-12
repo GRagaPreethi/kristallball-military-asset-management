@@ -1,0 +1,361 @@
+Kristallball Reference Material
+1. Objective
+The primary objective of this project is to build an enterprise-grade Military Asset Management System that tracks critical military assets (vehicles, weapons, ammunition) across multiple military bases.
+The system solves complex operational challenges by ensuring:
+End-to-End Asset Visibility: Calculating real-time opening balances, net movements, assignments, expenditures, and closing balances.
+Operational Accountability: Tracking cross-base asset transfers with strict audit trails.
+Granular Security: Enforcing Role-Based Access Control (RBAC) to ensure Base Commanders only see their base, Logistics Officers manage movements, and Admins retain global control.
+Auditability: Automatically logging every mutation (purchase, transfer, assignment, expenditure) to a central audit trail.
+2. Technical Requirements
+Development Tools & Runtimes
+Node.js (v18.x or higher) & npm / pnpm
+Git for version control
+Postman or Insomnia for API testing
+Docker Desktop (Optional, for database containerization)
+Core Stack
+Frontend: React (Vite template), Tailwind CSS (styling), Lucide React (icons), Recharts / Chart.js (dashboard visualization), Axios (API client).
+Backend: Node.js, Express.js, TypeScript / JavaScript ES6+.
+Database: PostgreSQL (Relational DB ensuring strict ACID compliance for transactional data) via Prisma ORM or TypeORM.
+Authentication/Security: JSON Web Tokens (JWT), Bcrypt (password hashing).
+Deployment Services: Vercel / Netlify (Frontend), Render / Railway (Backend & Database).
+3. Step-by-Step Implementation Guide
+Step 1: Requirements Gathering & System Architecture Planning
+Define user roles (Admin, Base Commander, Logistics Officer).
+Formulate the core mathematical model for tracking inventory:
+$$\text{Closing Balance} = \text{Opening Balance} + \text{Net Movement} - \text{Assigned} - \text{Expended}$$
+$$\text{Net Movement} = \text{Purchases} + \text{Transfers In} - \text{Transfers Out}$$
+Choose PostgreSQL over NoSQL to guarantee financial/transactional integrity (ACID) during complex simultaneous transfers.
+Step 2: Database Setup & Schema Design
+Initialize a PostgreSQL instance locally or on Cloud (e.g., Supabase / Neon / Render Postgres).
+Define entities: Users, Bases, EquipmentTypes, Assets, Purchases, Transfers, Assignments, Expenditures, and AuditLogs.
+Set up foreign key constraints and indexes on high-query fields like base_id, equipment_type_id, and created_at.
+Step 3: Backend Initialization & Authentication Setup
+Initialize an Express application with CORS, Helmet, and JSON body parsing middleware.
+Implement user authentication using JWT:
+Login endpoint generates signed JWT containing userId, role, and baseId.
+Create an authentication middleware (authenticateToken) to verify tokens on incoming API requests.
+Step 4: Role-Based Access Control (RBAC) Middleware
+Implement a custom authorization middleware (authorizeRoles(...roles)).
+Restrict routes based on user role:
+Admin: Unrestricted access.
+Base Commander: Automatically inject filtering criteria so they can only read/write data associated with their baseId.
+Logistics Officer: Restrict access primarily to the Purchases and Transfers endpoints.
+Step 5: Core Business Logic & Transaction Logging
+Purchases Endpoint: Create a route to add new stock to a specific base.
+Transfers Endpoint: Use DB Transactions (BEGIN...COMMIT) to safely subtract assets from Base A and add them to Base B.
+Assignments & Expenditures Endpoint: Record asset allocation to personnel and record consumed assets (e.g., spent ammunition).
+Audit Logging Middleware/Service: Intercept asset-changing operations and append log records to the AuditLogs table with user IDs, timestamps, and action details.
+Step 6: Frontend Development (React)
+Set up React app with Vite and Tailwind CSS.
+Create private/protected route wrappers based on JWT validation.
+Construct the UI screens:
+Dashboard: Display key stats cards (Opening, Net Movement, Closing, Expended) and filter controls (Date, Base, Equipment Type).
+Net Movement Modal: Add interactive pop-ups showing breakdown details (Purchases vs Transfers In vs Transfers Out).
+Purchases Page: Form to log incoming assets + historical logs table.
+Transfers Page: Form to initiate transfers between bases + historical movement table.
+Assignments & Expenditures Page: Interface to track personnel assignments and mark items as expended.
+Step 7: Deployment & Documentation
+Deploy the backend API to Render/Railway; configure environment variables (DATABASE_URL, JWT_SECRET).
+Deploy the React SPA to Netlify/Vercel; configure VITE_API_BASE_URL.
+Compile the submission artifacts: Source code archive (.zip), PDF Report, Video Demo, and Live Application Links.
+4. Project Structure
+A clean, modular structure ensures clear separation of concerns across the system.
+Plaintext
+military-asset-management/
+├── backend/
+│   ├── config/
+│   │   └── db.js                 # Database connection pooling
+│   ├── controllers/
+│   │   ├── authController.js     # User authentication logic
+│   │   ├── assetController.js    # Stock & inventory aggregation
+│   │   ├── purchaseController.js # Purchase transaction handlers
+│   │   └── transferController.js # Cross-base transfer logic
+│   ├── middlewares/
+│   │   ├── authMiddleware.js     # JWT validation
+│   │   ├── rbacMiddleware.js     # Role verification
+│   │   └── loggerMiddleware.js   # Automated API audit logging
+│   ├── models/                   # Schema definitions / Prisma schema
+│   ├── routes/
+│   │   ├── authRoutes.js
+│   │   ├── assetRoutes.js
+│   │   ├── purchaseRoutes.js
+│   │   └── transferRoutes.js
+│   ├── .env.example
+│   └── server.js                 # Express app initialization
+│
+├── frontend/
+│   ├── public/
+│   ├── src/
+│   │   ├── assets/
+│   │   ├── components/
+│   │   │   ├── Navbar.jsx        # Top navigation header
+│   │   │   ├── Sidebar.jsx       # RBAC-driven menu navigation
+│   │   │   ├── StatCard.jsx      # Reusable dashboard metric card
+│   │   │   └── NetMoveModal.jsx  # Net movement pop-up detailed view
+│   │   ├── pages/
+│   │   │   ├── Dashboard.jsx     # Main metrics view
+│   │   │   ├── Purchases.jsx     # Purchase logging & history
+│   │   │   ├── Transfers.jsx     # Base-to-base transfer management
+│   │   │   ├── Assignments.jsx   # Personnel assignment & expenditures
+│   │   │   └── Login.jsx         # Sign-in page
+│   │   ├── services/
+│   │   │   └── api.js            # Axios instance with auth interceptors
+│   │   ├── context/
+│   │   │   └── AuthContext.jsx   # Global user state management
+│   │   ├── App.jsx               # React Router configuration
+│   │   └── main.jsx
+│   ├── tailwind.config.js
+│   └── vite.config.js
+└── README.md
+​
+5. Data Models & Database Schema
+The system uses a relational model (PostgreSQL) to ensure relational integrity across dynamic stock operations.
+       +---------------+             +------------------+
+       |     Bases     |             | EquipmentTypes   |
+       +---------------+             +------------------+
+       | id (PK)       |             | id (PK)          |
+       | name          |             | category         |
+       | location      |             | name             |
+       +-------+-------+             +--------+---------+
+               |                              |
+               +--------------+---------------+
+                              |
+                              v
+                     +------------------+
+                     |     Purchases    |
+                     +------------------+
+                     | id (PK)          |
+                     | base_id (FK)     |
+                     | equipment_id(FK) |
+                     | quantity         |
+                     | date             |
+                     +------------------+
+​
+Key Relational Tables (SQL Definition Outline)
+SQL
+-- Bases Table
+CREATE TABLE bases (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    location VARCHAR(150) NOT NULL
+);
+
+-- Users Table
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    role VARCHAR(30) CHECK (role IN ('ADMIN', 'BASE_COMMANDER', 'LOGISTICS_OFFICER')),
+    base_id INT REFERENCES bases(id) ON DELETE SET NULL
+);
+
+-- Equipment Categories / Types
+CREATE TABLE equipment_types (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL, -- e.g., 'M4 Carbine', 'Humvee', '5.56mm Ammo'
+    category VARCHAR(50) NOT NULL -- 'WEAPON', 'VEHICLE', 'AMMUNITION'
+);
+
+-- Transfers Table
+CREATE TABLE transfers (
+    id SERIAL PRIMARY KEY,
+    source_base_id INT REFERENCES bases(id),
+    destination_base_id INT REFERENCES bases(id),
+    equipment_type_id INT REFERENCES equipment_types(id),
+    quantity INT NOT NULL CHECK (quantity > 0),
+    status VARCHAR(20) DEFAULT 'COMPLETED', -- 'PENDING', 'IN_TRANSIT', 'COMPLETED'
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    initiated_by INT REFERENCES users(id)
+);
+
+-- System Audit Logs Table
+CREATE TABLE audit_logs (
+    id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES users(id),
+    action VARCHAR(50) NOT NULL, -- 'PURCHASE', 'TRANSFER', 'ASSIGNMENT', 'EXPENDITURE'
+    details TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+​
+6. Core Implementation Snippets
+A. RBAC & Base Authorization Middleware (Backend)
+This middleware verifies permissions based on JWT roles and ensures Base Commanders cannot view data outside their assigned base.
+JavaScript
+// middlewares/rbacMiddleware.js
+
+export const authorizeRoles = (...allowedRoles) => {
+  return (req, res, next) => {
+    if (!req.user || !allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({
+        message: "Access Denied: Insufficient authorization level."
+      });
+    }
+    next();
+  };
+};
+
+export const enforceBaseScope = (req, res, next) => {
+  // Admins can see all bases; Commanders are scoped to their assigned base
+  if (req.user.role === 'BASE_COMMANDER') {
+    req.query.baseId = req.user.baseId; // Force query context to user's assigned base
+  }
+  next();
+};
+​
+B. Dynamic Inventory Calculation Query (Backend Controller)
+To calculate dashboard balance numbers dynamically without data duplication:
+JavaScript
+// controllers/assetController.js
+import db from '../config/db.js';
+
+export const getDashboardMetrics = async (req, res) => {
+  try {
+    const { baseId, equipmentTypeId, startDate, endDate } = req.query;
+
+    // Complex aggregation query computing Opening, Movements, Expenditures & Closing
+    const query = `
+      WITH purchase_summary AS (
+        SELECT COALESCE(SUM(quantity), 0) AS total_purchases
+        FROM purchases
+        WHERE ($1::int IS NULL OR base_id = $1)
+          AND ($2::int IS NULL OR equipment_type_id = $2)
+          AND ($3::timestamp IS NULL OR created_at >= $3)
+      ),
+      transfer_in_summary AS (
+        SELECT COALESCE(SUM(quantity), 0) AS total_transfer_in
+        FROM transfers
+        WHERE ($1::int IS NULL OR destination_base_id = $1)
+          AND ($2::int IS NULL OR equipment_type_id = $2)
+      ),
+      transfer_out_summary AS (
+        SELECT COALESCE(SUM(quantity), 0) AS total_transfer_out
+        FROM transfers
+        WHERE ($1::int IS NULL OR source_base_id = $1)
+          AND ($2::int IS NULL OR equipment_type_id = $2)
+      )
+      SELECT
+        p.total_purchases,
+        ti.total_transfer_in,
+        to_sum.total_transfer_out,
+        (p.total_purchases + ti.total_transfer_in - to_sum.total_transfer_out) AS net_movement
+      FROM purchase_summary p, transfer_in_summary ti, transfer_out_summary to_sum;
+    `;
+
+    const result = await db.query(query, [baseId || null, equipmentTypeId || null, startDate || null]);
+    return res.status(200).json(result.rows[0]);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
+};
+​
+C. Atomic Transfer API with Database Transactions
+Ensures assets are transferred atomically between bases using database transactions:
+JavaScript
+// controllers/transferController.js
+import db from '../config/db.js';
+
+export const createTransfer = async (req, res) => {
+  const client = await db.getClient();
+  try {
+    const { sourceBaseId, destinationBaseId, equipmentTypeId, quantity } = req.body;
+    const userId = req.user.id;
+
+    await client.query('BEGIN'); // Start Transaction
+
+    // 1. Insert Transfer Record
+    const transferQuery = `
+      INSERT INTO transfers (source_base_id, destination_base_id, equipment_type_id, quantity, initiated_by)
+      VALUES ($1, $2, $3, $4, $5) RETURNING id;
+    `;
+    const transferRes = await client.query(transferQuery, [sourceBaseId, destinationBaseId, equipmentTypeId, quantity, userId]);
+
+    // 2. Log Action in Audit Table
+    const auditQuery = `
+      INSERT INTO audit_logs (user_id, action, details)
+      VALUES ($1, 'TRANSFER', $2);
+    `;
+    const details = `Transferred ${quantity} items (Type: ${equipmentTypeId}) from Base #${sourceBaseId} to Base #${destinationBaseId}`;
+    await client.query(auditQuery, [userId, details]);
+
+    await client.query('COMMIT'); // Commit Transaction
+    res.status(201).json({ message: "Transfer completed successfully", transferId: transferRes.rows[0].id });
+  } catch (error) {
+    await client.query('ROLLBACK'); // Rollback on failure
+    res.status(500).json({ error: "Transfer failed: " + error.message });
+  } finally {
+    client.release();
+  }
+};
+​
+D. Interactive React Metric Card & Net Movement Pop-up View (Frontend)
+JavaScript
+// src/components/DashboardMetrics.jsx
+import React, { useState } from 'react';
+
+export const DashboardMetrics = ({ metrics }) => {
+  const [showModal, setShowModal] = useState(false);
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4">
+      <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-600">
+        <h3 className="text-gray-500 text-sm font-semibold">Opening Balance</h3>
+        <p className="text-2xl font-bold">{metrics.openingBalance}</p>
+      </div>
+
+      {/* Clickable Net Movement Card */}
+      <div
+        onClick={() => setShowModal(true)}
+        className="bg-white p-6 rounded-lg shadow-md border-l-4 border-emerald-600 cursor-pointer hover:bg-emerald-50 transition"
+      >
+        <h3 className="text-gray-500 text-sm font-semibold">Net Movement (Click for detail)</h3>
+        <p className="text-2xl font-bold text-emerald-700">{metrics.netMovement}</p>
+      </div>
+
+      {/* Net Movement Detail Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
+          <div className="bg-white p-6 rounded-lg max-w-md w-full shadow-xl">
+            <h2 className="text-lg font-bold mb-4">Net Movement Breakdown</h2>
+            <div className="space-y-2">
+              <div className="flex justify-between"><span>Purchases (+):</span> <span className="font-semibold">{metrics.purchases}</span></div>
+              <div className="flex justify-between"><span>Transfers In (+):</span> <span className="font-semibold text-green-600">+{metrics.transfersIn}</span></div>
+              <div className="flex justify-between"><span>Transfers Out (-):</span> <span className="font-semibold text-red-600">-{metrics.transfersOut}</span></div>
+              <hr />
+              <div className="flex justify-between font-bold"><span>Total Net:</span> <span>{metrics.netMovement}</span></div>
+            </div>
+            <button
+              onClick={() => setShowModal(false)}
+              className="mt-6 w-full bg-slate-800 text-white py-2 rounded-md hover:bg-slate-700"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+​
+7. Assignment Submission Checklist
+When finalizing your assignment for submission, verify that all artifacts are accounted for:
+Source Code Archive (.zip / .rar): Contains clean frontend and backend source code, package.json files, and a database dump (schema.sql / dump.sql). Exclude node_modules.
+Video Walkthrough (3-5 mins): Covers architecture, live functional demo (Dashboard, Transfers, Purchases, RBAC login switching), and explanation of complex components (e.g., dynamic database calculations or atomic transactions).
+Documentation PDF: Fully formulated document including overall architecture, ER schema diagram, detailed endpoint listings, RBAC authorization matrix, setup steps, and sample test accounts.
+Live Hosted Links: Publicly accessible URL endpoints for both the hosted frontend dashboard and backend API.
+Sample Test Credentials Template (For PDF Report)
+Role
+Username
+Password
+Base Assigned
+Admin
+admin_user
+AdminPass123!
+All Bases (Global)
+Base Commander
+commander_alpha
+CommandPass123!
+Fort Alpha (Base #1)
+Logistics Officer
+logistics_officer
+LogisticsPass123!
+Base #1 / Global Ops
