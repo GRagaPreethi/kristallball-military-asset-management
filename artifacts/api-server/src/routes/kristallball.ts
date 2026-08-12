@@ -175,15 +175,18 @@ async function dashboardMetrics(
     endDate?: string;
   },
 ): Promise<Record<string, unknown>> {
-  const endDate =
-  params.endDate ?? new Date().toISOString().slice(0, 10);
+  const baseId = scopedBaseId({ user } as Request, params.baseId);
+  const equipmentTypeId = params.equipmentTypeId ?? null;
 
-const startDate =
-  params.startDate ??
-  new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 10);
-  const endDate = params.endDate ?? "2999-12-31";
+  const endDate =
+    params.endDate ?? new Date().toISOString().slice(0, 10);
+
+  const startDate =
+    params.startDate ??
+    new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
+
   const result = await pool.query(
     `WITH period AS (
       SELECT
