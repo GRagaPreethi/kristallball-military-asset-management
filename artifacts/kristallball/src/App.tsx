@@ -38,7 +38,21 @@ queryClient.getMutationCache().subscribe(event => {
 });
 
 function Button({ children, className, variant = 'primary', ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'ghost' | 'danger' | 'outline' }) {
-  return <button {...props} className={cn('inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-[12px] font-bold tracking-[.02em] disabled:cursor-not-allowed disabled:opacity-45', variant === 'primary' && 'bg-primary text-primary-foreground shadow-sm hover:brightness-110', variant === 'ghost' && 'text-muted-foreground hover:bg-secondary hover:text-foreground', variant === 'danger' && 'bg-destructive text-destructive-foreground hover:brightness-110', variant === 'outline' && 'border border-border bg-card text-foreground hover:border-primary hover:text-primary', className)} />;
+  return (
+    <button
+      {...props}
+      className={cn(
+        'inline-flex items-center justify-center gap-2 rounded-md px-3 py-2 text-[12px] font-bold tracking-[.02em] disabled:cursor-not-allowed disabled:opacity-45',
+        variant === 'primary' && 'bg-primary text-primary-foreground shadow-sm hover:brightness-110',
+        variant === 'ghost' && 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+        variant === 'danger' && 'bg-destructive text-destructive-foreground hover:brightness-110',
+        variant === 'outline' && 'border border-border bg-card text-foreground hover:border-primary hover:text-primary',
+        className
+      )}
+    >
+      {children}
+    </button>
+  );
 }
 
 function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
