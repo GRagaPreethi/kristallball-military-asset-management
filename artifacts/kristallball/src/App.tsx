@@ -179,7 +179,7 @@ function Login() { const [, setLocation] = useLocation(); const login = useLogin
   type="submit"
   disabled={login.isPending}
   data-testid="button-login"
-  className="mt-1 h-11"
+  className="mt-1 h-11 text-white"
 >
   {login.isPending ? 'Signing in…' : 'Sign in'}
 </Button></form><div className="mt-10 border-t border-sidebar-border pt-5 font-mono-ui text-[9px] uppercase tracking-[.14em] text-sidebar-foreground/35">Authorized personnel only · All activity is logged</div></div></div></div>; }
